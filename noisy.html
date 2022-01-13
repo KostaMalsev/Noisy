@@ -24,24 +24,32 @@
     let stream;
     
     let biquadFilter;
+    let biquadFilterWide;
+    
     let convolver;
     let gainNode;
+    
+    let compressor;
 
     
     //Peak detection control:
     let windowWidth = 22;
-    let threshold = 130;
+    let threshold = 140//130;
     
     let Q = 1; //bandwidth[hz]
     
+    let Qwide = 50;
+    
     //The analyser freq sample window:
-    let fftSize = 2048;
+    let fftSize = 2048//2048;
     
     //Biquad filter notch Freq
     let notchFreq = 50;
     //(a) Δ f = f s N = 10 , 000 1024 = 9.776 Hz .
     let bps = 16; //bps
-    let channels = 2;
+    let channels = 1;
+    
+    
 
 
     
@@ -139,9 +147,13 @@
           
           //audioSourceNode.connect(audioCtx.destination);//TBD@@
           
-          analyserNode.connect(biquadFilter);
+          analyserNode.connect(biquadFilterWide);
+
+          biquadFilterWide.connect(biquadFilter);
           
-          biquadFilter.connect(audioCtx.destination);
+          biquadFilter.connect(compressor)
+          
+          compressor.connect(audioCtx.destination);
           
           //biquadFilter.connect(convolver);
           
@@ -152,8 +164,13 @@
           //Define the notch
           biquadFilter.type = "notch";
           biquadFilter.frequency.value = 1;//4900; //hz
-          biquadFilter.gain.value = 300;//25;
+          biquadFilter.gain.value = 25;//25;
           biquadFilter.Q.value = Q;//25;
+
+          biquadFilterWide.type = "notch";
+          biquadFilterWide.frequency.value = 1;//4900; //hz
+          biquadFilterWide.gain.value = 25;//25;
+          biquadFilterWide.Q.value = Qwide;//25;
           
           //analyserNode.connect(audioCtx.destination);
 
@@ -199,8 +216,24 @@
 
       //Creating biquadFilter
        biquadFilter = audioCtx.createBiquadFilter();
-       convolver = audioCtx.createConvolver();
-       gainNode = audioCtx.createGain(); //@@TBD
+       
+       biquadFilter2 = audioCtx.createBiquadFilter();
+
+       biquadFilterWide = audioCtx.createBiquadFilter();
+       
+       
+        compressor = audioCtx.createDynamicsCompressor();
+        
+        compressor.threshold.setValueAtTime(-15, audioCtx.currentTime);//-24 -50
+        compressor.knee.setValueAtTime(30, audioCtx.currentTime);
+        compressor.ratio.setValueAtTime(12, audioCtx.currentTime);
+        compressor.attack.setValueAtTime(0.03, audioCtx.currentTime);
+        compressor.release.setValueAtTime(0.25, audioCtx.currentTime);
+        
+        
+       //convolver = audioCtx.createConvolver();
+       
+       //gainNode = audioCtx.createGain(); //@@TBD
        
        await createPipeline();
 
