@@ -97,6 +97,7 @@ function draw() {
   //Schedule next redraw
   requestAnimationFrame(draw);
 
+  if(typeof('dataArray')=='undefined')return;
   //Get spectrum data
   analyserNode.getFloatFrequencyData(dataArray);
 
