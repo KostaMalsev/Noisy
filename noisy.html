@@ -292,6 +292,7 @@
       noiseFreqBin.forEach(bin => {
         console.log('peak freq is',binToHerzt(bin, audioCtx.sampleRate, fftSize),'sample rate:',audioCtx.sampleRate);
         biquadFilter.frequency.value = binToHerzt(bin,audioCtx.sampleRate,fftSize); //hz
+        biquadFilterWide.frequency.value = binToHerzt(bin,audioCtx.sampleRate,fftSize); //hz
       });
       
 
