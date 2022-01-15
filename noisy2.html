@@ -1,2 +1,205 @@
 
-
+
+const bunyan = require('bunyan');
+
+const CoralogixStream = require('coralogix-logger-bunyan');
+
+const bunyanDebugStream = require('bunyan-debug-stream');
+
+
+const aws=require("aws-sdk");
+const s3=new aws.S3();
+
+
+
+
+let ELogSeverity =  {
+  DEBUG : 'debug',
+    INFO : 'info',
+    WARN : 'warn',
+    ERROR : 'error',
+    CRITICAL : 'fatal',
+}
+
+let EPlatform  = {
+  WEB : 'WEB',
+    IOS : 'iOS',
+    ANDROID : 'ANDROID',
+    BACKEND : 'BACKEND',
+    WORKER : 'WORKER'
+};
+
+//splits the line with '--' delimiter
+let regx = /.+?(?= -- )/g;
+
+
+
+
+
+
+let IErrorShort =  {
+  stack: "",
+  message: ""
+}
+
+//Fetch fields from log message:
+function parseF(name,line)
+{
+
+  let res = '';
+  let detail = line.split(name);
+
+  if(detail.length > 1){
+
+    let word = detail[1].split(',');
+
+    if(word.length > 1){
+
+      res = word[0];
+
+    }else{
+      //In case its a different closure
+      word = detail[1].split('}');
+
+      if(word.length > 1)
+        res = word[0];
+    }
+  }
+
+  return res;
+}
+//Format log and push it coralogix:
+function PushLog(Ilog,data) {
+
+  let dataL = data.split('/n');
+
+  //Push all lines to coralogix:
+  dataL.forEach( (ind,line) =>{
+
+    let parts = line.split('--');
+
+    Ilog.time = parts[0];
+    Ilog.className = parts[1];
+    Ilog.msg = parts[2];
+
+
+    //Store the archive ID:
+    Ilog.slug = parseF('slug:', Ilog.msg);
+    Ilog.platform = parseF('platform:',Ilog.msg);
+
+    Ilog.user.sessionId = parseF('SessionId:', Ilog.msg);
+    Ilog.user.clientID = parseF('clientID:', Ilog.msg);
+    Ilog.user.id = parseF('archiveID:', Ilog.msg);
+    Ilog.user.name = parseF('payload:{name:', Ilog.msg);
+    Ilog.user.role = parseF('role:', Ilog.msg);
+
+    console.log(Ilog);
+
+    //logger.info(Ilog);
+
+  });
+
+}
+
+
+//Main handler:
+exports.handler = async (event) => {
+
+  console.log(event);
+
+  if(typeof(event.Records)=='undefined')return;
+
+  //Get the bucket data type and content:
+  const bucket = event.Records[0].s3.bucket.name;
+
+  const key = decodeURIComponent(event.Records[0].s3.object.key.replace(/\+/g, ' '));
+
+  const params = {
+    Bucket: bucket,
+    Key: key
+  };
+
+  let data;
+
+  let Ilog  = {
+  topic: "error",
+  msg: "",
+  category: "",
+  time: "",
+  slug: "",
+  severity: "",
+  err: "",
+  user: {
+    id: "",
+    name: "",
+    sessionId: "",
+    role: "",
+    clientID: ""
+  },
+  browser: {
+    name: "",
+    version: "",
+    major: ""
+  },
+  os: {
+    name: "Mobile",
+    version: ""
+  },
+  cpu: {
+    architecture: "Mobile"
+  },
+  platform: "",
+  functionName: "",
+  className: "",
+  extraData: "" //[key: ""]: ""
+
+}
+
+let config = {
+
+  privateKey: process.env.CORALOGIX_KEY,
+  applicationName: 'Riverside',
+  subsystemName: "YOUR SUBSYSTEM"
+
+};
+
+  try {
+
+    // Retrieve the object
+    data = await s3.getObject({ bucket, key }).promise();
+
+    console.log("Raw text:\n" + data.Body.toString('ascii'));
+
+  }catch(e){
+
+    console.log('Failed to fetch the s3 object',e);
+
+  }
+
+  try{
+
+    //logger.info('hello bunyan');
+    PushLog(Ilog,data);
+
+  }catch(e){
+    console.log('error to push to coralogix',e);
+  }
+
+};
+
+
+
+
+/*
+exports.handler = async (event) => {
+    // TODO implement
+    console.log(event.Records[0].s3.bucket)
+    //s3.getComputedStyle
+    const response = {
+        statusCode: 200,
+        body: JSON.stringify('Hello from Lambda!'),
+    };
+    return response;
+};
+*/
+
